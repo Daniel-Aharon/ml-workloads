@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Reference the base (upstream KFP Version 2.3.0 + our StorageClass we created at kubeflow/base/storageclass-gp3.yaml)
+resources:
+  - ../../base
+
+# Apply resource patches for dev/demo environment
+# Reduces memory and CPU requests to fit on t3.xlarge (4 vCPU, 16 GB RAM per node)
+patches:
+  - path: patches/mysql-resources.yaml
+    target:
+      kind: Deployment
+      name: mysql
+  - path: patches/minio-resources.yaml
+    target:
+      kind: Deployment
+      name: minio
