@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: kubeflow
+spec:
+  template:
+    spec:
+      containers:
+        - name: mysql
+          resources:
+            requests:
+              cpu: 200m        # Reduced from upstream 500m because we use smaller nodes
+              memory: 512Mi    # Reduced from upstream 1Gi because we use smaller nodes
+            limits:
+              cpu: 500m
+              memory: 1Gi
