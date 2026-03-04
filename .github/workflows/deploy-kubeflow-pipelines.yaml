@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'kubeflow/**'
+      - '.github/workflows/deploy-kubeflow-pipelines.yaml'
   workflow_dispatch:
 
 env:
