@@ -5,8 +5,8 @@ kind: Kustomization
 # and extracted to ./upstream/ before kustomize build runs
 
 resources:
-  - ./upstream/manifests/kustomize/cluster-scoped-resources/kustomization.yaml
-  - ./upstream/manifests/kustomize/env/platform-agnostic-pns/kustomization.yaml
+  - ./upstream/manifests/kustomize/cluster-scoped-resources
+  - ./upstream/manifests/kustomize/env/platform-agnostic-pns
   - storageclass-gp3.yaml
 
 namespace: kubeflow
