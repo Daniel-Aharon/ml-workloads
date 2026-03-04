@@ -6,7 +6,7 @@ kind: Kustomization
 
 resources:
   - ./upstream/manifests/kustomize/cluster-scoped-resources
-  - ./upstream/manifests/kustomize/env/platform-agnostic-pns
+  - ./upstream/manifests/kustomize/env/platform-agnostic
   - storageclass-gp3.yaml
 
 namespace: kubeflow
