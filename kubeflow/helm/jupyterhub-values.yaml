@@ -1,0 +1,94 @@
+hub:
+  # Resource requests+limits for the hub itself (controlplane, light by purpose, no heavy lifting).
+  resources:
+    requests:
+      cpu: 200m     
+      memory: 256Mi  
+    limits:
+      cpu: 500m
+      memory: 512Mi  
+
+  persistence:
+    enabled: true
+    size: 1Gi # Storing for ligh SQLite DB
+    storageClassName: gp3-ebs
+
+  service:
+    type: ClusterIP # Because it's accessed internally, not by users.
+
+proxy: # I wanted a different process that routes the HTTP traffic to the user pods.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    type: LoadBalancer  # NLB
+    # In prod, I'd use Ingress + ACM instead of NLB (cheaper, more features)
+
+  ports:
+    http:
+      containerPort: 8000 # Traffic to user's notebooks
+
+auth:
+  type: dummy
+  dummy:
+    password: "test"
+
+singleuser:
+  # Image: official scipy-notebook image from Jupyter Docker Stacks.
+  image:
+    name: jupyter/scipy-notebook
+    tag: "latest"  # In prod, I'd use again a specific tag.
+
+  resources: # The resources are per pod per user, not per hub.
+    requests:
+      cpu: 500m 
+      memory: 512Mi  
+    limits:
+      cpu: 1000m    
+      memory: 1Gi    
+
+  storage:
+    type: dynamic  # Create PVC on demand when user creates a notebook
+    dynamic:
+      storageClassName: gp3-ebs # I use it to ensure if the pod dies the files persist. 
+    homeSize: 1Gi  
+
+  env:
+    JUPYTER_ENABLE_LAB: "true"  # Use JupyterLab instead of classic notebook
+
+  lifecycleHooks:
+    postStart:
+      exec:
+        command: ["sh", "-c", "pip install kubeflow-pipelines"] # Use it to insall the
+        # Kubeflow Piplines SDK in the user's notebooks (via the pod). No manual installation.
+
+spawner:
+  podRunAsUser: 1000  
+  allowPrivilegeEscalation: false
+
+db:
+  type: sqlite
+
+# I used these specific limits above because of these followin constaints:
+#
+# Cluster Capacity:
+# - 2 nodes: t3.xlarge (4 vCPU, 16GB RAM each) = 8 vCPU, 32GB total
+# - OS/system: ~1-2GB per node reserved
+# - Kubeflow: ~4-6GB (MySQL, MinIO, KFP API, etc.)
+# - Remaining: ~16GB for JupyterHub
+#
+# JupyterHub allocation:
+# - Hub: 256Mi
+# - Proxy: 256Mi 
+# - Per user: 1Gi (512Mi request, 1Gi limit)
+# - Can fit: ~15 concurrent users before hitting node memory limits
+#
+# CPU allocation:
+# - Hub: 200m
+# - Proxy: 100m
+# - Per user: 500m request
+# - Can fit: ~7-8 concurrent users before hitting CPU requests (8000m total)
