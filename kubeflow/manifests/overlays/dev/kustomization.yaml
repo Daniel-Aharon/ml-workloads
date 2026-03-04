@@ -20,7 +20,3 @@ patches:
     target:
       kind: Deployment
       name: ml-pipeline
-  - path: patches/ml-pipeline-ui-resources.yaml
-    target:
-      kind: Deployment
-      name: ml-pipeline-ui
