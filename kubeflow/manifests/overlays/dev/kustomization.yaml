@@ -20,3 +20,11 @@ patches:
     target:
       kind: Deployment
       name: ml-pipeline
+  - path: patches/remove-ml-pipeline-ui.yaml
+    target:
+      kind: Deployment
+      name: ml-pipeline-ui
+  - path: patches/remove-ml-pipeline-ui-service.yaml
+    target:
+      kind: Service
+      name: ml-pipeline-ui
