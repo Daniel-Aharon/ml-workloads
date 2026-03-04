@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
         - name: ml-pipeline-ui
-          image: gcr.io/ml-pipeline/frontend:2.1.0
+          image: gcr.io/ml-pipeline/frontend:1.7.0
           resources:
             requests:
               cpu: 100m
