@@ -37,4 +37,3 @@ singleuser:
 
   storage:
     capacity: 1Gi
-    storageClassName: gp3-ebs
