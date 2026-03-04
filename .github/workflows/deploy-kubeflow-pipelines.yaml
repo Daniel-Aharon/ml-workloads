@@ -64,6 +64,15 @@ jobs:
         with:
           kustomize-version: "5.4.1"
 
+      - name: Download and extract KFP v2.3.0 manifests
+        run: |
+          mkdir -p kubeflow/manifests/base/upstream
+          cd kubeflow/manifests/base/upstream
+          curl -L -o kfp-2.3.0.tar.gz https://github.com/kubeflow/pipelines/archive/refs/tags/2.3.0.tar.gz
+          tar -xzf kfp-2.3.0.tar.gz
+          mv pipelines-2.3.0/manifests/kustomize .
+          rm -rf pipelines-2.3.0 kfp-2.3.0.tar.gz
+
       - name: Create Kubeflow namespace
         run: |
           kubectl create namespace ${{ env.KUBEFLOW_NAMESPACE }} \
