@@ -67,12 +67,20 @@ jobs:
 
       - name: Download and extract KFP v2.3.0 manifests
         run: |
-          mkdir -p kubeflow/manifests/base/upstream
-          cd kubeflow/manifests/base/upstream
-          curl -L -o kfp-2.3.0.tar.gz https://github.com/kubeflow/pipelines/archive/refs/tags/2.3.0.tar.gz
+          set -e
+          UPSTREAM_DIR="kubeflow/manifests/base/upstream"
+          mkdir -p "$UPSTREAM_DIR"
+          cd "$UPSTREAM_DIR"
+          echo "Downloading KFP 2.3.0..."
+          curl -L -f -o kfp-2.3.0.tar.gz https://github.com/kubeflow/pipelines/archive/refs/tags/2.3.0.tar.gz
+          echo "Extracting..."
           tar -xzf kfp-2.3.0.tar.gz
-          mv pipelines-2.3.0/manifests .
+          echo "Moving manifests..."
+          mv pipelines-2.3.0/manifests . || (ls -la && exit 1)
+          echo "Cleaning up..."
           rm -rf pipelines-2.3.0 kfp-2.3.0.tar.gz
+          echo "KFP manifests ready at $(pwd)/manifests"
+          ls -la manifests/
 
       - name: Create Kubeflow namespace
         run: |
