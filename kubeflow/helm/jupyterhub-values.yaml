@@ -1,3 +1,4 @@
+# JupyterHub 3.3.7 Helm values — minimal demo configuration
 hub:
   # Control plane (JupyterHub hub process)
   resources:
@@ -10,10 +11,11 @@ hub:
 
   # SQLite database for hub state (persistent across restarts)
   db:
-    pvc:
-      enabled: true
-      size: 1Gi
-      storageClassName: gp3-ebs
+    type: sqlite-pvc
+    sqlite:
+      pvc:
+        storageClassName: gp3-ebs
+        size: 1Gi
 
   service:
     type: ClusterIP  # Internal only; accessed via proxy
@@ -43,19 +45,25 @@ singleuser:
     name: jupyter/scipy-notebook
     tag: "latest"  # In production, pin to specific version
 
+  # Resource limits as plain values (not nested request/limit)
   cpu:
-    request: 500m
-    limit: 1000m
+    limit: 1
+    request: 0.5
 
   memory:
-    request: 512Mi
-    limit: 1Gi
+    limit: 1G
+    request: 512M
 
   # Persistent home directory per user
   storage:
     type: dynamic
-    capacity: 1Gi
-    storageClassName: gp3-ebs
+    dynamic:
+      pvcNameTemplate: "claim-{username}-{servername}"
+      volumeNameTemplate: "volume-{username}-{servername}"
+      storageAccessModes:
+        - ReadWriteOnce
+      storageClassName: gp3-ebs
+      size: 1Gi
 
   # JupyterLab instead of classic notebook
   defaultUrl: "/lab"
@@ -69,5 +77,5 @@ singleuser:
         - "-c"
         - "pip install kubeflow-pipelines"
       volumeMounts:
-        - name: notebook-volume
+        - name: notebook
           mountPath: /home/jovyan
