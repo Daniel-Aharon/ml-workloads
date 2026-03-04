@@ -70,7 +70,7 @@ jobs:
           cd kubeflow/manifests/base/upstream
           curl -L -o kfp-2.3.0.tar.gz https://github.com/kubeflow/pipelines/archive/refs/tags/2.3.0.tar.gz
           tar -xzf kfp-2.3.0.tar.gz
-          mv pipelines-2.3.0/manifests/kustomize .
+          mv pipelines-2.3.0/manifests .
           rm -rf pipelines-2.3.0 kfp-2.3.0.tar.gz
 
       - name: Create Kubeflow namespace
