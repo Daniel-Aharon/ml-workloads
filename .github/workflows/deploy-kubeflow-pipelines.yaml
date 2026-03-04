@@ -117,13 +117,6 @@ jobs:
             -n ${{ env.KUBEFLOW_NAMESPACE }} \
             --timeout=${{ env.ROLLOUT_TIMEOUT }}
 
-      - name: Wait for ML Pipeline UI
-        run: |
-          echo "Waiting for ML Pipeline UI (max ${{ env.ROLLOUT_TIMEOUT }})"
-          kubectl rollout status deployment/ml-pipeline-ui \
-            -n ${{ env.KUBEFLOW_NAMESPACE }} \
-            --timeout=${{ env.ROLLOUT_TIMEOUT }}
-
       - name: Create JupyterHub namespace
         run: |
           kubectl create namespace ${{ env.JUPYTERHUB_NAMESPACE }} \
