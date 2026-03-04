@@ -1,0 +1,135 @@
+name: Deploy Kubeflow Pipelines & JupyterHub
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'kubeflow/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  CLUSTER_NAME: ${{ vars.KUBEFLOW_CLUSTER_NAME }}
+  KUBEFLOW_NAMESPACE: kubeflow
+  JUPYTERHUB_NAMESPACE: jupyterhub
+  JUPYTERHUB_CHART_VERSION: "3.3.7"
+  ROLLOUT_TIMEOUT: "5m"
+
+jobs:
+  deploy-kubeflow-pipelines:
+    runs-on: ubuntu-latest
+    name: "Deploy Kubeflow Pipelines & JupyterHub"
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      - name: Validate Variables from GitHub Variables
+        run: |
+          echo "AWS_REGION: ${{ env.AWS_REGION }}"
+          echo "AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}"
+          echo "CLUSTER_NAME: ${{ env.CLUSTER_NAME }}"
+
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+          # role duration seconds: 3600 seconds so we don't use static credentials with infinite amount of time. 
+
+      - name: Update kubeconfig for EKS cluster
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ env.CLUSTER_NAME }} \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Verify cluster connectivity
+        run: kubectl cluster-info # To verify the cluster is reachable. 
+
+      - name: Get cluster nodes
+        run: |
+          kubectl get nodes -o wide 
+        # Want to confirm we can reach the cluster's resources.
+
+      - name: Install Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.1"
+
+      - name: Create Kubeflow namespace
+        run: |
+          kubectl create namespace ${{ env.KUBEFLOW_NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+        # Want to make sure the namespace exists before deploying resources into it.
+
+      - name: Deploy Kubeflow Pipelines manifests
+        run: |
+          echo "Deploying Kubeflow Pipelines"
+          kustomize build kubeflow/manifests/overlays/dev \
+            | kubectl apply --server-side -f - \
+            -n ${{ env.KUBEFLOW_NAMESPACE }}
+
+      - name: Wait for MySQL to be ready
+        run: |
+          echo "Waiting for MySQL (max ${{ env.ROLLOUT_TIMEOUT }})"
+          kubectl rollout status deployment/mysql \
+            -n ${{ env.KUBEFLOW_NAMESPACE }} \
+            --timeout=${{ env.ROLLOUT_TIMEOUT }}
+        # I want to use timeout to prevent the workflow from hanging infinite amout of time if it can't start the pod.
+
+      - name: Wait for Minio to be ready
+        run: |
+          echo "Waiting for Minio (max ${{ env.ROLLOUT_TIMEOUT }})"
+          kubectl rollout status deployment/minio \
+            -n ${{ env.KUBEFLOW_NAMESPACE }} \
+            --timeout=${{ env.ROLLOUT_TIMEOUT }}
+
+      - name: Wait for ML Pipeline API server
+        run: |
+          echo "Waiting for ML Pipeline API (max ${{ env.ROLLOUT_TIMEOUT }})"
+          kubectl rollout status deployment/ml-pipeline \
+            -n ${{ env.KUBEFLOW_NAMESPACE }} \
+            --timeout=${{ env.ROLLOUT_TIMEOUT }}
+
+      - name: Wait for ML Pipeline UI
+        run: |
+          echo "Waiting for ML Pipeline UI (max ${{ env.ROLLOUT_TIMEOUT }})"
+          kubectl rollout status deployment/ml-pipeline-ui \
+            -n ${{ env.KUBEFLOW_NAMESPACE }} \
+            --timeout=${{ env.ROLLOUT_TIMEOUT }}
+
+      - name: Create JupyterHub namespace
+        run: |
+          kubectl create namespace ${{ env.JUPYTERHUB_NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+        # I want to create the notebooks in different NS. I decouple so that the 
+        # Logical components (SQL, Minio, etc) live uner one NS, and notebooks which is not
+        # Essential for the app itself to run live in another NS. 
+
+      - name: Add JupyterHub Helm repo
+        run: |
+          helm repo add jupyterhub https://hub.jupyter.org/helm-chart/
+          helm repo update
+
+      - name: Deploy JupyterHub via Helm 
+        run: |
+          echo "Deploying JupyterHub (v${{ env.JUPYTERHUB_CHART_VERSION }})"
+          helm upgrade --install jupyterhub jupyterhub/jupyterhub \
+            --namespace ${{ env.JUPYTERHUB_NAMESPACE }} \
+            --version ${{ env.JUPYTERHUB_CHART_VERSION }} \
+            --values kubeflow/helm/jupyterhub-values.yaml
+
+      - name: Wait for JupyterHub hub
+        run: |
+          echo "Waiting for JupyterHub hub (max ${{ env.ROLLOUT_TIMEOUT }})"
+          kubectl rollout status statefulset/hub \
+            -n ${{ env.JUPYTERHUB_NAMESPACE }} \
+            --timeout=${{ env.ROLLOUT_TIMEOUT }}
